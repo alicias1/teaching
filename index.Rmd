@@ -1,0 +1,30 @@
+---
+title: "Introduction to Social Epi Methods"
+author: "Daniel J Carter"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+output: 
+  bookdown::gitbook:
+    css: style.css
+    split_by: section
+    config:
+      toc:
+        collapse: section
+        before: |
+          <li><a href="./">R for STEPH</a></li>
+    toolbar: 
+      position: static
+documentclass: book
+delete_merged_file: true
+# bibliography: [r4steph.bib]
+# biblio-style: apalike
+# link-citations: yes
+---
+
+# Preface {-}
+
+Welcome to Methods Week in Social Epi. This 'book' offers the opportunity to conduct the computer practical sessions in R. All the code is provided for you - all you have to do is run it! This is so the focus remains on interpreting the output of the code and understanding the implications of the analysis, rather than worrying about Stata code.
+
+Any questions about the content in this book can be directed to Daniel J Carter [via email](daniel.carter1@lshtm.ac.uk). It should also be noted that there is a comment functionality in this book - leaving notes and questions for your peers can be a very useful way to learn.
+
+Happy analysing :)
