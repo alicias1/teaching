@@ -1,15 +1,5 @@
----
-title: 'PCA Analysis: Beers'
-author: "Daniel J Carter"
-date: "26 Feb 2019"
-output:
-  html_document:
-    df_print: paged
-  pdf_document: default
----
 
-Introduction
-------
+# Beer Example
 
 This document contains the code for reproducing the PCA found for the beers example in the PCA lecture for the Social Epidemiology course at LSHTM in 2019. 
 
@@ -19,10 +9,10 @@ An alternative is to save a copy of the R Notebook itself to your own H:/ drive 
 
 To run a command in R, press ctrl-Enter with your cursor anywhere in the line you wish to run or press the green button in the top right hand corner of a code chunk to run the entire chunk. 
 
-As R is open source software, not every tool we might want for analysis is contained in the base programme. Some useful user written functions are in various packages. Once a package is installed, we load the functions from it using the library() command. Try loading the libraries in the code chunk below. Should any fail, uncomment the install.packages() commands by deleting the _#_ symbol at the start of the line and run those lines of code. Ensure the _tidyverse_ is loaded last.
+As R is open source software, not every tool we might want for analysis is contained in the base programme. Some useful user written functions are in various packages. Once a package is installed, we load the functions from it using the library() command. Try loading the libraries in the code chunk below. Should any fail, uncomment the install.packages() commands by deleting the \# symbol at the start of the line and run those lines of code. Ensure the *tidyverse* is loaded last.
 
 
-```{r, message= F}
+```{r beer_setup, include = F}
 # install.packages("ggbiplot")
 # install.packages("epiDisplay")
 # install.packages("magrittr")
@@ -38,24 +28,16 @@ options(scipen = 999)
 
 ```
 
-```{r, echo = F}
-### Do not run the below if running the PCA code
-# install.packages("knitr") 
- library(knitr)
- opts_chunk$set(tidy.opts=list(width.cutoff=60), tidy=TRUE)
-
-```
-
-&nbsp;
+## Beer Dataset
 
 This dataset contains 123 beers from [Dieu du Ciel in Montreal][1]. Data included in this small dataset include the name of the beer, whether there is an accent in the name of the beer, its alcohol percentage by volume, its average crowdsourced rating on [RateBeer.com][2], its average crowdsourced rating for its style, the number of ratings it has received, and the style of the beer.
 
-```{r}
+```{r read_beer}
 #--- Read in the dataset
 beers <- read.csv("./beers2.csv") 
 ```
 
-&nbsp;
+## The Task
 
 Imagine that you are tasked with producing a 'summary score' of the beers that captures each beer's essential properties, but omits all the redundant details. In fact, we really want to find the _best_ possible summary score of these data. What do we mean by _best_? We might conceive of two different aims:
 
@@ -63,13 +45,20 @@ First, the summary score should be able to discriminate between two beers that a
 
 Second, the summary score should be able to accurately 'reconstruct' the original beer list. Imagine if part of our summary score was based on some property actually unrelated to the beer, like 'label colour'. This would likely not be a useful property, since the colour of the beer label is not likely to actually tell you anything about the _essential_ characteristics of the beer. Again, a useful characteristic might be _amount of alcohol_, since the amount of alcohol is actually very likely to tell you a lot about the other facets of the beer - a Budweiser and an imperial stout are different from each other not only by alcohol content, but also by colour, style, and probably drinker enjoyment. In other words, we are looking for properties to go into our summary score that minimise error, i.e. that are very representative of the other essential characteristics of the beer.
 
-So overall, a good summary score 'maximises variance (across beers)' and 'minimises error (when reconstructing the list)'. Luckily, mathematically, these two aims are exactly the same. For a proof of this property, see [here].
+So overall, a good summary score 'maximises variance (across beers)' and 'minimises error (when reconstructing the list)'. Luckily, mathematically, these two aims are exactly the same.
+
+
+
+## Underlying Process
+
+
+Let's first look at conducting a PCA manually. We are first going to just try to summarise the variables of Alcohol Content and overall Drinker Rating. We do this just to illustrate the underlying mathematics, not necessarily because it is useful in practice. PCA as a whole will repeat the steps outlined below, but generalising to multiple different variables.
 
 Let's examine two potential properties of the beer that could be combined into one summary score: strength of beer (measured in alcohol by volume, ABV %) vs. the overall rating (measured on a 5 point Likert scale). 
 
 We produce a scatter plot of these two variables, and we conclude that as the strength of the beer increases, so does the drinker rating.
 
-```{r}
+```{r plot_beer}
 ggplot(beers, aes(x = abv, y = rating)) +
   geom_point(aes(color = style)) + 
   geom_smooth(method = lm, se = F, color = "black") + 
@@ -79,28 +68,21 @@ ggplot(beers, aes(x = abv, y = rating)) +
        y = "Drinker Rating")
 ```
 
+---
 
-&nbsp;
-
-------
-
-Underlying Process
-------
-
-Let's first look at conducting a PCA manually. We are first going to just try to summarise the variables of Alcohol Content and overall Drinker Rating. We do this just to illustrate the underlying mathematics, not necessarily because it is useful in practice. PCA as a whole will repeat the steps outlined below, but generalising to multiple different variables.
-
-#### Step 1: Standardise
+### Step 1: Standardise {-}
 
 The scale() function makes sure that each variable is standardised to have mean 0 and variance 1 such that they are comparable. This is to prevent the scale of measurement of the variables obscuring the variability in the dataset: consider that the _unscaled_ variance of a variable measured between 0-100 (e.g. style.rating in this dataset) must be more than the unscaled variance of a variable measured 1-5 (e.g. rating in this dataset). 
 
-```{r}
+```{r std_beer}
 #--- Standardise the variables
 beers$abv.standard <- scale(beers$abv, scale = T) 
 beers$rating.standard <- scale(beers$rating, scale = T)
 ```
 
+---
 
-#### Step 2: Extract Covariances and Variances
+### Step 2: Extract Covariances and Variances {-}
 
 Now that we've standardised each of the variables, we might want to know how they vary together. We do this by extracting the covariance. With standardised variables, the covariance is equal to the correlation. 
 
@@ -108,13 +90,14 @@ We also know that the variance of each individual variable is 1, because we stan
 
 We can summarise these variances and covariances in a matrix that shows how the variables are related to one another. If we had more variables, we could imagine extending the matrix to see how each variable is related to each of the others.
 
+$$\begin{array}{ccc}
+ & Rating & ABV \\
+Rating & 1.000 & 0.683 \\
+ABV & 0.683 & 1.000
+\end{array}$$
 
-|        | Rating | ABV   |
-| ------ |:------:| -----:|
-| Rating | 1.000  | 0.683 |
-| ABV    | 0.683  | 1.000 |
 
-```{r}
+```{r vcov_beer}
 #--- Extract the covariance
 beers %$% cov(rating.standard, abv.standard)
 
@@ -129,7 +112,7 @@ dim(vcov) <- c(2,2)
 
 Let's briefly return to our plot, this time using the standardised variables.
 
-```{r}
+```{r plot_std_beer}
 ggplot(beers, aes(x = abv.standard, y = rating.standard)) +
   geom_point(aes(color = style)) + 
   geom_smooth(method = lm, se = F, color = "black") + 
@@ -152,13 +135,15 @@ The second principal component is determined by the line perpendicular to the fi
 
 How do we usefully turn this line of best fit into a summary score?
 
-#### Step 3: Find the eigenvectors and rotate
+---
+
+### Step 3: Find the eigenvectors and rotate {-}
 
 One way to visualise what to do with this line of best fit is to rotate the data such that the first principal component is the new x-axis. Thus, the maximum variance (or spread) is along the x axis, and the residual variance is along the y axis. The second principal component will then be on the y-axis.
 
 The quantity by which we rotate the original data to put the first principal component on the x axis is determined by the *eigenvectors* from the variance-covariance matrix that we calculated above. We multiply the original data by the eigenvectors to get the new transformed data. Eigenvectors are sometimes called loadings: the importance of eigenvectors to interpreting PCA will become clear in a later example.
 
-```{r}
+```{r eigen_beer}
 #--- Get the eigenvectors
 eigens <- eigen(vcov) 
 eigenvectors <- eigens$vectors
@@ -174,7 +159,7 @@ The resulting rotated data are called scores and the scores are displayed on the
 
 Note that now if we put a line of best fit through this data, it would be horizontal. This implies that principal component 1 and principal component 2 are independent from one another.
 
-```{r}
+```{r score_beer}
 #--- Extract the beer style data
 style <- as.data.frame(beers$style)
 
@@ -189,11 +174,11 @@ ggplot(rotated, aes(x = pc1, y = pc2)) +
   labs(title = "Strength of Beer vs. Drinker Rating",
        x = "PC1",
        y = "PC2")
-
 ```
 
+---
 
-#### Step 4: Find the eigenvalues
+### Step 4: Find the eigenvalues {-}
 
 We know that there are 2 units of variance in the total dataset. What if we wanted to see how much of the total variance was accounted for by PC1?
 
@@ -201,18 +186,14 @@ We can extract the eigenvalues from the variance covariance matrix we constructe
 
 For further information on both eigenvectors and eigenvalues see [this Khan Academy video][3].
 
-```{r}
+```{r eigenv_beer}
 #--- Extract the eigenvalues
 eigenvalues <- eigens$values
 round(eigenvalues, 2)
 ```
 
-&nbsp;
 
-------
-
-PCA Computation & Exploration
-------
+## PCA Computation & Exploration
 
 Now, all that is quite complicated. Luckily, there is a built-in function in R to do all this in the background, for as many dimensions of data as we might like! Let's do all that we did above in a few lines of code:
 
@@ -222,7 +203,7 @@ We can then extract the eigenvectors and eigenvalues.
 
 'Loadings' is a term used to refer to the eigenvectors when they are transformed by multiplication by the square root of the eigenvalues. Mathematically, this is done such that the loadings can be interpreted directly as the correlation between the component and the variable. Untransformed eigenvectors themselves are not useful for interpretation of a PCA - I use the two terms 'eigenvector' and 'loading' interchangeably although this is not strictly correct...! 
 
-```{r}
+```{r pca_beer}
 #--- Select the columns we want for our PCA
 beercols <- beers %>% select(abv.standard, rating.standard)
 
@@ -232,17 +213,22 @@ beers_pca <- prcomp(beercols, scale = T)
 #--- Get the eigenvectors 
 beers_pca$rotation
 
-#--- Get the eigenvalues (and Proportion of Variance)
-summary(beers_pca)
+#--- Get the eigenvalues
 (beers_pca$sdev)^2
+
+#--- Get the proportion of variance (row 2)
+summary(beers_pca)
+
 
 ```
 
-&nbsp;
+But what does all this really _mean_? 
 
-But what does all this really _mean_? It can be made clear by means of a _biplot_ that graphically displays the results of the PCA. 
+## Biplots and Interpretation
 
-```{r}
+It can be made clear by means of a _biplot_ that graphically displays the results of the PCA. 
+
+```{r biplot_beer}
 ggbiplot(beers_pca, obs.scale = 1, group = beers$style, ellipse = T) + 
   scale_color_discrete(name = '') +
   labs(title = "PCA: Beer variables") +
@@ -260,25 +246,33 @@ So we now understand that our summary score that we obtained for each beer, that
 
 The arrows on the biplot are actually representative of the eigenvectors (loadings), so we could just as easily obtain this information from the matrix of the loadings:
 
-|        | PC1     | PC2    |
-| ------ |:-------:| ------:|
-| ABV    | -0.707  |  0.707 |
-| Rating | -0.707  | -0.707 |
+$$\begin{array}{ccc}
+ & PC1 & PC2 \\
+ABV & -0.707 & 0.707 \\
+Rating & -0.707 & -0.707
+\end{array}$$
+
+
 
 PC1 is negatively associated with ABV and Rating (the signs of the eigenvectors are negative) and therefore we would expect low values of PC1 to entail high values of ABV & Ratings. PC2 is positively associated with ABV and negatively associated with Rating, so we expect beers with high PC2 scores to be low in alcohol but highly rated.
 
 Note that also from the biplot, we can see that higher ratings are associated with Stout (and not Lager) because the arrow points in the direction of the cluster of Stout points (in purple) and away from the cluster of Lager points (in green). Higher alcohol might be associated with Belgian beers (in orange) and not Wheat beers (in pink). 
 
-&nbsp;
+---
+
+### Extending the Example
 
 What happens if we add some more data into the PCA? Let's reconduct the PCA and include a new piece of information: the year the beer was released.
 
-```{r}
+```{r pca2_beer}
 #--- Select the new relevant columns
 beercols2 <- beers %>% select(abv, rating, year)
 
 #--- Conduct the PCA
 beers_pca2 <- prcomp(beercols2, scale = T)
+
+#--- Get the eigenvectors 
+beers_pca2$rotation
 
 #--- Plot the PCA
 ggbiplot(beers_pca2, obs.scale = 1, var.scale = 2, group = beers$style, ellipse = T) + 
@@ -286,33 +280,34 @@ ggbiplot(beers_pca2, obs.scale = 1, var.scale = 2, group = beers$style, ellipse 
   labs(title = "PCA: Beer variables") +
   theme_bw() 
 
-#--- Extract the eigenvectors
-beers_pca2$rotation
-
-#--- Extract the eigenvalues
-summary(beers_pca2)
+#--- Get the eigenvalues
 (beers_pca2$sdev)^2
+
+#--- Get the proportion of variance (row 2)
+summary(beers_pca2)
 
 ```
 
-In this case, we see that high values of PC1 are associated with low values of Alcohol Content, low Drinker Rating, and older years. So high values of PC1 are associated with well-regarded beers (loading: -0.65) that are also high in alcohol (loading: -0.67). High values of PC1 are a little less associated with newness (loading: -0.37). PC1 explains 60.2% of the total variance, making it a fairly good summary measure.  
+$$\begin{array}{cccc}
+ & PC1 & PC2 & PC3 \\
+ABV & -0.65 & 0.31 & -0.70 \\
+Rating & -0.67 & 0.20 & -0.70 \\
+Year & -0.37 & -0.93 & -0.08
+\end{array}$$
+
+
+In this case, we see that high values of PC1 are associated with low values of Alcohol Content, low Drinker Rating, and older years. So low values of PC1 are associated with well-regarded beers (loading: -0.65) that are also high in alcohol (loading: -0.67). Low values of PC1 are a little less associated with newness (loading: -0.37). PC1 explains 60.2% of the total variance, making it a fairly good summary measure.  
 
 PC2 on the other hand (explaining 29% of the variance), is largely influenced by year (the associated loading is 0.93) - so this implies that there is some aspect of the beer data, _independent_ from being well-regarded and strong, that is explained by the newness of the beer. Note that the composite measure PC2 actually explains less of the variance than any of the given variables (ABV, Rating, Year) alone - since the total variance is 3, each variable alone would explain 33.3% of the variance.
 
 
-
-&nbsp;
-
-------
-
-Social Epidemiology
-------
+## Social Epidemiology
 
 So what does this all have to do with social epidemiology? 
 
 PCA has been used in social epi in a number of different ways and it gets much more useful when there are multiple dimensions of data. PCA is used to explore relationships between variables and relationships of variables to particular clusters in the dataset. It is good for elucidating what particular **constructs** might be underlying the data. 
 
-Sometimes, we can use the first principal component (or first and second principal components - they are uncorrelated) as a proxy measure of some underlying construct for the variables. If you had data on several measures of socioeconomic position, for example, it would be possible to use PC1 as a proxy variable for the underlying construct of SEP and to thus adjust for it in an analysis. This is what we will do in the practical session associated with this lecture.
+Sometimes, we can use the first principal component (or first and second principal components - they are uncorrelated) as a proxy measure of some underlying construct for the variables. If you had data on several measures of socioeconomic position, for example, it would be possible to use PC1 as a proxy variable for the underlying construct of SEP and to thus adjust for it in an analysis. This is what we will do in the PCA practicals.
 
 
 [1]: http://dieuduciel.com/
